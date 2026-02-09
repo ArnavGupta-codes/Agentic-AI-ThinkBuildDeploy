@@ -59,16 +59,24 @@ A virtual environment (venv) is an isolated Python environment that has its own 
 ## Creating and using a venv
 
 ### Create a virtual environment
-`python -m venv env_name`
+```
+python -m venv env_name
+```
 
 ### Activate (Linux / macOS)
-`source env_name/bin/activate`
+```
+source env_name/bin/activate
+```
 
 ### Activate (Windows)
-`env_name\Scripts\activate`
+```
+env_name\Scripts\activate
+```
 
 ### Deactivate
-`deactivate`
+```
+deactivate
+```
 
 
 Once activated, all pip install commands install packages only inside the venv and not on the system wide installation
