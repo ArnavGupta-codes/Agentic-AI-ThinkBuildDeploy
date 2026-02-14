@@ -1,0 +1,9 @@
+PyPDF2
+sentence-transformers
+transformers
+chromadb
+numpy
+python-dotenv
+torch
+faiss-cpu
+google-genai

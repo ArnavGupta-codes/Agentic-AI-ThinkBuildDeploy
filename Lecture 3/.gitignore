@@ -1,0 +1,7 @@
+.env
+# Ignore Python virtual environment
+Env/
+
+# Ignore database directory
+RAG_db/
+
