@@ -1,4 +1,4 @@
-## 🔧 Virtual Environment Setup
+##  Virtual Environment Setup
 
 ### Create Virtual Environment
 
@@ -26,7 +26,7 @@ Create a `.env` file in the root directory as discussed in the lecture.
 
 ---
 
-## 📦 Install Dependencies
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 ---
 
-## 📚 Resources
+## Resources
 
 - **Slides:**  
   https://docs.google.com/presentation/d/1TPe2Na7eLQp7Oi-dhZyxfZPso2YLGWGeFQTtn9fSNFM/edit?usp=sharing
