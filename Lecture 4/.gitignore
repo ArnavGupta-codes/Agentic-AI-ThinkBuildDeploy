@@ -1,0 +1,7 @@
+.venv
+debug_env.py
+debug_imports.py
+fix_env.sh
+__pycache__
+.env
+check.py

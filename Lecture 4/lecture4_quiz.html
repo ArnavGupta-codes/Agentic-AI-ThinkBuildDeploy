@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lecture 4 Quiz — State & Memory</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c14;
+    --surface: #111420;
+    --surface2: #161a28;
+    --border: #1f2540;
+    --cyan: #00e5ff;
+    --pink: #ff2d78;
+    --purple: #7c3aed;
+    --green: #00f5a0;
+    --yellow: #ffd60a;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --correct: #00f5a0;
+    --wrong: #ff2d78;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    margin-bottom: 48px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .module-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--cyan);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .module-tag::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse 1.5s ease infinite;
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  h1 span { color: var(--cyan); }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* PROGRESS BAR */
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 40px;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    width: 0%;
+  }
+
+  .progress-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* SCORE TRACKER */
+  .score-tracker {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    animation: fadeDown 0.6s 0.15s ease both;
+  }
+
+  .score-pip {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    transition: all 0.3s ease;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .score-pip.correct { background: rgba(0,245,160,0.15); border-color: var(--green); color: var(--green); }
+  .score-pip.wrong   { background: rgba(255,45,120,0.15); border-color: var(--pink);  color: var(--pink);  }
+
+  /* QUESTION CARD */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.45s ease both;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
+    opacity: 0.6;
+  }
+
+  .q-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .q-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .q-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .q-tag.slide { background: rgba(124,58,237,0.15); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+  .q-tag.code  { background: rgba(0,229,255,0.1);   color: var(--cyan);    border: 1px solid rgba(0,229,255,0.25); }
+
+  .question {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin-bottom: 28px;
+    color: var(--text);
+  }
+
+  /* CODE BLOCK IN QUESTION */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-family: 'Space Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #cdd9e5;
+    overflow-x: auto;
+  }
+
+  .code-block .kw  { color: #ff79c6; }
+  .code-block .fn  { color: #50fa7b; }
+  .code-block .str { color: #f1fa8c; }
+  .code-block .cm  { color: #6272a4; }
+  .code-block .var { color: #8be9fd; }
+  .code-block .num { color: #bd93f9; }
+
+  /* OPTIONS */
+  .options { display: flex; flex-direction: column; gap: 10px; }
+
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14.5px;
+    line-height: 1.5;
+    user-select: none;
+  }
+
+  .option:hover:not(.disabled) {
+    border-color: rgba(0,229,255,0.4);
+    background: rgba(0,229,255,0.04);
+    transform: translateX(4px);
+  }
+
+  .option-letter {
+    min-width: 26px; height: 26px;
+    border-radius: 6px;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .option.selected {
+    border-color: var(--cyan);
+    background: rgba(0,229,255,0.06);
+  }
+
+  .option.selected .option-letter {
+    background: var(--cyan);
+    color: var(--bg);
+  }
+
+  .option.correct-ans {
+    border-color: var(--green);
+    background: rgba(0,245,160,0.07);
+    animation: correctPulse 0.4s ease;
+  }
+
+  .option.correct-ans .option-letter {
+    background: var(--green);
+    color: var(--bg);
+  }
+
+  .option.wrong-ans {
+    border-color: var(--pink);
+    background: rgba(255,45,120,0.07);
+    animation: wrongShake 0.4s ease;
+  }
+
+  .option.wrong-ans .option-letter {
+    background: var(--pink);
+    color: white;
+  }
+
+  .option.disabled { cursor: default; }
+
+  /* EXPLANATION */
+  .explanation {
+    margin-top: 18px;
+    padding: 16px 18px;
+    background: rgba(0,229,255,0.05);
+    border-left: 3px solid var(--cyan);
+    border-radius: 0 8px 8px 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #94a3b8;
+    display: none;
+  }
+
+  .explanation.show { display: block; animation: fadeUp 0.3s ease; }
+
+  .explanation strong { color: var(--cyan); }
+
+  /* NEXT BUTTON */
+  .btn-next {
+    display: none;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: opacity 0.2s, transform 0.2s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn-next:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-next.show { display: block; animation: fadeUp 0.3s ease; }
+
+  /* RESULTS CARD */
+  .results-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 36px;
+    text-align: center;
+    display: none;
+    animation: fadeUp 0.5s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .results-card.show { display: block; }
+
+  .results-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--green), var(--cyan), var(--purple));
+  }
+
+  .results-score {
+    font-size: 80px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--cyan), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .results-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 32px;
+  }
+
+  .results-breakdown {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .breakdown-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 12px;
+  }
+
+  .breakdown-num {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .breakdown-num.g { color: var(--green); }
+  .breakdown-num.r { color: var(--pink);  }
+  .breakdown-num.b { color: var(--cyan);  }
+
+  .breakdown-lbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .grade-badge {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 32px;
+    letter-spacing: 0.05em;
+  }
+
+  .grade-a { background: rgba(0,245,160,0.15); color: var(--green); border: 1px solid rgba(0,245,160,0.3); }
+  .grade-b { background: rgba(0,229,255,0.15); color: var(--cyan);  border: 1px solid rgba(0,229,255,0.3); }
+  .grade-c { background: rgba(255,214,10,0.15); color: var(--yellow); border: 1px solid rgba(255,214,10,0.3); }
+  .grade-d { background: rgba(255,45,120,0.15); color: var(--pink); border: 1px solid rgba(255,45,120,0.3); }
+
+  .btn-retry {
+    padding: 14px 40px;
+    background: transparent;
+    border: 1.5px solid var(--cyan);
+    border-radius: 10px;
+    color: var(--cyan);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.03em;
+  }
+
+  .btn-retry:hover {
+    background: rgba(0,229,255,0.08);
+    transform: translateY(-2px);
+  }
+
+  /* REVIEW STRIP */
+  .review-strip {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 28px;
+    justify-content: center;
+  }
+
+  .review-strip.show { display: flex; }
+
+  .review-chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+
+  .review-chip.c { background: rgba(0,245,160,0.1); color: var(--green); border: 1px solid rgba(0,245,160,0.25); }
+  .review-chip.w { background: rgba(255,45,120,0.1); color: var(--pink);  border: 1px solid rgba(255,45,120,0.25); }
+
+  /* ANIMATIONS */
+  @keyframes fadeDown  { from { opacity:0; transform: translateY(-16px); } to { opacity:1; transform: none; } }
+  @keyframes fadeUp    { from { opacity:0; transform: translateY(16px); }  to { opacity:1; transform: none; } }
+  @keyframes pulse     { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  @keyframes correctPulse { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+  @keyframes wrongShake   { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="module-tag">Module 2 · Lecture 4</div>
+    <h1>State &amp; <span>Memory</span></h1>
+    <p class="subtitle">// 10 questions · slides + code · test your knowledge</p>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText">0 / 10</div>
+  </div>
+
+  <!-- SCORE PIPS -->
+  <div class="score-tracker" id="scorePips"></div>
+
+  <!-- QUIZ AREA -->
+  <div id="quizArea"></div>
+
+  <!-- RESULTS -->
+  <div class="results-card" id="resultsCard">
+    <div class="results-score" id="finalScore">0/10</div>
+    <div class="results-label">Final Score</div>
+    <div class="results-breakdown">
+      <div class="breakdown-item"><div class="breakdown-num g" id="resCorrect">0</div><div class="breakdown-lbl">Correct</div></div>
+      <div class="breakdown-item"><div class="breakdown-num r" id="resWrong">0</div><div class="breakdown-lbl">Wrong</div></div>
+      <div class="breakdown-item"><div class="breakdown-num b" id="resPct">0%</div><div class="breakdown-lbl">Score</div></div>
+    </div>
+    <div id="gradeBadge" class="grade-badge"></div>
+    <br>
+    <button class="btn-retry" onclick="initQuiz()">↺ Retry Quiz</button>
+    <div class="review-strip" id="reviewStrip"></div>
+  </div>
+
+</div>
+
+<script>
+const questions = [
+  {
+    type: "slide",
+    q: "LLMs are described as 'stateless'. What does this mean for a multi-turn conversation?",
+    opts: [
+      "The model remembers everything from previous sessions automatically",
+      "Every prompt is treated as a completely isolated, independent event",
+      "The model stores history in its weights after each conversation",
+      "LLMs use cookies to track user identity between requests"
+    ],
+    ans: 1,
+    explain: "<strong>Stateless</strong> means each API call is fully independent. The model has <strong>zero recollection</strong> of any previous message. Memory is entirely managed by the application layer — not the model itself."
+  },
+  {
+    type: "slide",
+    q: "According to the 'Memory Cycle' from the lecture, what are the three steps that give ChatGPT the 'illusion of memory'?",
+    opts: [
+      "Training → Fine-tuning → Inference",
+      "Embedding → Chunking → Retrieval",
+      "Tracking (session IDs) → Storage (DB) → Re-injection into prompt",
+      "Compression → Caching → Broadcasting"
+    ],
+    ans: 2,
+    explain: "Memory is an application-level trick: conversations are <strong>tracked with session/user IDs</strong>, stored in databases like Redis or Postgres, then the history is <strong>re-injected into every new prompt</strong>. The LLM never actually remembers."
+  },
+  {
+    type: "slide",
+    q: "What is the key drawback of ConversationBufferMemory for a long-running production chatbot?",
+    opts: [
+      "It requires a separate LLM call to compress history",
+      "Token usage grows linearly and will eventually overflow the context window",
+      "It only remembers the last 2 exchanges",
+      "It cannot be stored in Redis"
+    ],
+    ans: 1,
+    explain: "<strong>Unbounded growth</strong> is the fatal flaw of buffer memory. Every message is appended, so a 30-day conversation history would show as <strong>OVERFLOW</strong> on the context window usage chart shown in the slides."
+  },
+  {
+    type: "slide",
+    q: "ConversationSummaryBufferMemory is described as 'Best of Both Worlds'. What does it combine?",
+    opts: [
+      "Redis storage with in-memory Python dicts",
+      "Entity extraction with vector search",
+      "Raw recent messages (buffer) + LLM-compressed summary of older messages",
+      "Window memory with entity memory"
+    ],
+    ans: 2,
+    explain: "The production pattern: keep the <strong>last few messages raw</strong> for immediate context (so 'it' and 'that' resolve correctly), while everything older is <strong>compressed into a running summary</strong> by the LLM. Prompt = System Instruction + Summary + Last 4 Messages + New Input."
+  },
+  {
+    type: "slide",
+    q: "In the LangChain BaseMemory interface, what does save_context(inputs, outputs) do?",
+    opts: [
+      "It is called BEFORE the LLM runs to fetch history",
+      "It wipes all memory when the user clicks 'New Chat'",
+      "It is called AFTER the LLM runs to save the user input and AI output",
+      "It compresses old messages into a summary"
+    ],
+    ans: 2,
+    explain: "The BaseMemory contract has 3 methods: <strong>load_memory_variables</strong> (called BEFORE to fetch history), <strong>save_context</strong> (called AFTER to persist the new exchange), and <strong>clear()</strong> (wipes memory on new chat)."
+  },
+  {
+    type: "code",
+    q: "In the updated code, what is the modern LangChain replacement for the deprecated ConversationChain?",
+    code: `<span class="cm"># OLD — Deprecated in LangChain 0.2.7</span>
+<span class="kw">from</span> langchain.chains <span class="kw">import</span> <span class="var">ConversationChain</span>
+<span class="var">chain</span> = <span class="fn">ConversationChain</span>(llm=llm, memory=memory)
+
+<span class="cm"># NEW — What replaces it?</span>
+<span class="kw">from</span> langchain_core.runnables.history <span class="kw">import</span> <span class="var">???</span>`,
+    opts: [
+      "HistoricalChain",
+      "RunnableWithMessageHistory",
+      "LLMChainWithMemory",
+      "SessionChain"
+    ],
+    ans: 1,
+    explain: "<strong>RunnableWithMessageHistory</strong> is the modern LCEL (LangChain Expression Language) approach. It wraps any runnable chain with history management and uses a <strong>get_session_history</strong> function to load/save per-session history."
+  },
+  {
+    type: "code",
+    q: "What does this WindowChatMessageHistory implementation do when a new message is added?",
+    code: `<span class="kw">class</span> <span class="fn">WindowChatMessageHistory</span>(<span class="var">ChatMessageHistory</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, k=<span class="num">2</span>):
+        <span class="fn">super()</span>.__init__()
+        self.k = k
+
+    <span class="kw">def</span> <span class="fn">add_message</span>(self, message):
+        <span class="fn">super().add_message</span>(message)
+        <span class="kw">if</span> len(self.messages) > self.k * <span class="num">2</span>:
+            self.messages = self.messages[-(self.k * <span class="num">2</span>):]`,
+    opts: [
+      "It summarizes all messages when the list exceeds k*2 items",
+      "It deletes the newest message to maintain a fixed size",
+      "It trims the oldest messages, keeping only the last k*2 messages (k exchanges)",
+      "It raises an exception when k messages are exceeded"
+    ],
+    ans: 2,
+    explain: "This is a <strong>FIFO (First In, First Out)</strong> sliding window. When the list exceeds <code>k * 2</code> (since each exchange = 1 human + 1 AI message), it slices the list from the end using <code>self.messages[-(k*2):]</code>, discarding the oldest messages."
+  },
+  {
+    type: "code",
+    q: "In the custom prompt template below, what is the role of MessagesPlaceholder?",
+    code: `prompt = <span class="fn">ChatPromptTemplate.from_messages</span>([
+    (<span class="str">"system"</span>, <span class="str">"You are a helpful assistant."</span>),
+    <span class="fn">MessagesPlaceholder</span>(variable_name=<span class="str">"history"</span>),
+    (<span class="str">"human"</span>, <span class="str">"{input}"</span>)
+])`,
+    opts: [
+      "It defines a static block of example messages for few-shot prompting",
+      "It is the slot where LangChain automatically injects the conversation history at runtime",
+      "It stores the system prompt in a database",
+      "It limits the number of messages that can be sent"
+    ],
+    ans: 1,
+    explain: "<strong>MessagesPlaceholder</strong> is the injection point. At runtime, LangChain calls <code>load_memory_variables()</code> and replaces this placeholder with the actual conversation history. This is how the model 'sees' past messages."
+  },
+  {
+    type: "code",
+    q: "What is the key advantage of this Redis-based session history over a plain in-memory dict (store = {})?",
+    code: `<span class="kw">from</span> langchain_community.chat_message_histories <span class="kw">import</span> <span class="var">RedisChatMessageHistory</span>
+
+<span class="kw">def</span> <span class="fn">get_session_history</span>(session_id: <span class="var">str</span>):
+    <span class="kw">return</span> <span class="fn">RedisChatMessageHistory</span>(
+        session_id, url=<span class="str">"redis://localhost:6379/0"</span>
+    )`,
+    opts: [
+      "Redis is faster at processing LLM tokens than a Python dict",
+      "Redis supports automatic LLM summarization of old messages",
+      "History persists across server restarts and supports multiple concurrent users",
+      "Redis automatically compresses messages to save tokens"
+    ],
+    ans: 2,
+    explain: "A Python <code>store = {}</code> lives in RAM and <strong>dies on server restart</strong>. RedisChatMessageHistory writes to an external database, so history survives restarts and is accessible across multiple server instances — essential for production."
+  },
+  {
+    type: "slide",
+    q: "The 'MemGPT Concept' slide describes modern agentic systems as acting like an Operating System. What role does the Agent play in this analogy?",
+    opts: [
+      "The RAM — stores expensive, fast, limited context",
+      "The Hard Drive — stores cheap, slow, infinite knowledge",
+      "The OS — decides when to page memories between context window (RAM) and Vector DB (Hard Drive)",
+      "The CPU — executes all LLM inference operations"
+    ],
+    ans: 2,
+    explain: "In the MemGPT analogy: <strong>Context Window = RAM</strong> (fast, expensive, limited), <strong>Vector DB = Hard Drive</strong> (cheap, slow, infinite). The <strong>Agent acts as the OS</strong>, intelligently deciding which memories to keep in the active context window vs. offload to long-term vector storage."
+  }
+];
+
+let current = 0;
+let score = 0;
+let answered = [];
+let userAnswers = [];
+
+function initQuiz() {
+  current = 0; score = 0; answered = []; userAnswers = [];
+  document.getElementById('resultsCard').classList.remove('show');
+  document.getElementById('reviewStrip').classList.remove('show');
+  buildPips();
+  updateProgress();
+  renderQuestion();
+}
+
+function buildPips() {
+  const c = document.getElementById('scorePips');
+  c.innerHTML = '';
+  questions.forEach((_, i) => {
+    const p = document.createElement('div');
+    p.className = 'score-pip';
+    p.id = `pip-${i}`;
+    p.textContent = i + 1;
+    c.appendChild(p);
+  });
+}
+
+function updateProgress() {
+  const pct = (current / questions.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${current} / ${questions.length}`;
+}
+
+function renderQuestion() {
+  const qa = document.getElementById('quizArea');
+  if (current >= questions.length) { showResults(); return; }
+
+  const q = questions[current];
+  const letters = ['A', 'B', 'C', 'D'];
+
+  let codeBlock = q.code
+    ? `<div class="code-block">${q.code}</div>`
+    : '';
+
+  let optsHtml = q.opts.map((o, i) => `
+    <div class="option" id="opt-${i}" onclick="selectAnswer(${i})">
+      <div class="option-letter">${letters[i]}</div>
+      <div>${o}</div>
+    </div>
+  `).join('');
+
+  qa.innerHTML = `
+    <div class="card">
+      <div class="q-meta">
+        <span class="q-number">Question ${current + 1} of ${questions.length}</span>
+        <span class="q-tag ${q.type}">${q.type === 'slide' ? '📊 Slides' : '💻 Code'}</span>
+      </div>
+      <div class="question">${q.q}${codeBlock}</div>
+      <div class="options">${optsHtml}</div>
+      <div class="explanation" id="explanation">${q.explain}</div>
+    </div>
+    <button class="btn-next" id="btnNext" onclick="nextQuestion()">
+      ${current === questions.length - 1 ? 'See Results →' : 'Next Question →'}
+    </button>
+  `;
+}
+
+function selectAnswer(idx) {
+  if (answered[current]) return;
+  answered[current] = true;
+  userAnswers[current] = idx;
+
+  const q = questions[current];
+  const isCorrect = idx === q.ans;
+  if (isCorrect) score++;
+
+  // Mark options
+  for (let i = 0; i < q.opts.length; i++) {
+    const el = document.getElementById(`opt-${i}`);
+    el.classList.add('disabled');
+    if (i === q.ans)  el.classList.add('correct-ans');
+    if (i === idx && !isCorrect) el.classList.add('wrong-ans');
+  }
+
+  // Update pip
+  const pip = document.getElementById(`pip-${current}`);
+  pip.classList.add(isCorrect ? 'correct' : 'wrong');
+  pip.textContent = isCorrect ? '✓' : '✗';
+
+  // Show explanation + next
+  document.getElementById('explanation').classList.add('show');
+  document.getElementById('btnNext').classList.add('show');
+}
+
+function nextQuestion() {
+  current++;
+  updateProgress();
+  renderQuestion();
+}
+
+function showResults() {
+  document.getElementById('quizArea').innerHTML = '';
+  const card = document.getElementById('resultsCard');
+  card.classList.add('show');
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('progressText').textContent = `${questions.length} / ${questions.length}`;
+
+  const pct = Math.round((score / questions.length) * 100);
+  document.getElementById('finalScore').textContent = `${score}/${questions.length}`;
+  document.getElementById('resCorrect').textContent = score;
+  document.getElementById('resWrong').textContent   = questions.length - score;
+  document.getElementById('resPct').textContent     = pct + '%';
+
+  const badge = document.getElementById('gradeBadge');
+  if      (pct >= 90) { badge.textContent = '🏆 Expert — Outstanding!';    badge.className = 'grade-badge grade-a'; }
+  else if (pct >= 70) { badge.textContent = '✅ Proficient — Well done!';   badge.className = 'grade-badge grade-b'; }
+  else if (pct >= 50) { badge.textContent = '📚 Developing — Review slides'; badge.className = 'grade-badge grade-c'; }
+  else                { badge.textContent = '🔄 Needs work — Re-read lecture'; badge.className = 'grade-badge grade-d'; }
+
+  // Review strip
+  const strip = document.getElementById('reviewStrip');
+  strip.innerHTML = userAnswers.map((ua, i) => {
+    const ok = ua === questions[i].ans;
+    return `<div class="review-chip ${ok ? 'c' : 'w'}">Q${i+1} ${ok ? '✓' : '✗'}</div>`;
+  }).join('');
+  strip.classList.add('show');
+}
+
+initQuiz();
+</script>
+</body>
+</html>
