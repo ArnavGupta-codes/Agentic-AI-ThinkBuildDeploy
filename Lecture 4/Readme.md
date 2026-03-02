@@ -3,6 +3,8 @@
 ## Overview
 This directory contains practical implementations of the memory concepts from Lecture 4: **State & Memory - From Stateless LLMs to Context-Aware Agents with LangChain**.
 
+Notes: https://docs.google.com/presentation/d/1guHqwU8mhofFJWsvGTuSDhb8EoUqthEhpqdMsoh3iLo/edit?usp=sharing
+
 ## Prerequisites
 1. Install dependencies:
 ```bash
@@ -115,17 +117,17 @@ User Input → Backend (FastAPI/LangChain) → Redis/Postgres → LLM
 - **Permanent facts**: `ConversationEntityMemory`
 
 ### Production Checklist
-✅ Use `ConversationSummaryBufferMemory`  
-✅ Store in Redis/Postgres (not in-memory)  
-✅ Use session IDs (UUIDs per user)  
-✅ Set TTL (expire old sessions)  
-✅ Monitor token usage  
+Use `ConversationSummaryBufferMemory`  
+Store in Redis/Postgres (not in-memory)  
+Use session IDs (UUIDs per user)  
+Set TTL (expire old sessions)  
+Monitor token usage  
 
 ## Common Pitfalls
-❌ Using `ConversationBufferMemory` in production (unbounded)  
-❌ Not persisting memory (loses data on restart)  
-❌ Forgetting to call `memory.save_context()` manually  
-❌ Mixing memory types without understanding trade-offs  
+Using `ConversationBufferMemory` in production (unbounded)  
+Not persisting memory (loses data on restart)  
+Forgetting to call `memory.save_context()` manually  
+Mixing memory types without understanding trade-offs  
 
 ## Next Steps
 - Lecture 5: Agentic AI Systems (Tools + Memory + RAG)
