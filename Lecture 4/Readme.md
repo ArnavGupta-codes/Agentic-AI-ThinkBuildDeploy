@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 GEMINI_API_KEY=your_api_key_here
 ```
-For all codes except 5th use .venv/bin/<File Name> to run it
+For all codes except 5th use .venv/bin/< FileName > to run it
 Also if you exhaust your api keys while running these create a new one and retry, all codes should be working perfectly fine
 
 3. For Redis examples (optional):
