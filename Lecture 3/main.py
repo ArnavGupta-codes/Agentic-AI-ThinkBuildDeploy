@@ -9,6 +9,7 @@ import numpy as np
 from dotenv import load_dotenv
 transformers.logging.set_verbosity_error()
 
+
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 

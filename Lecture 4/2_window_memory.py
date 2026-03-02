@@ -35,8 +35,9 @@ msgs = [
     "My name is Arnav",
     "I love pizza",
     "I have a dog named Bruno",
-    "What's my name?",  # Should forget (because it was msg #1, and we are now at msg #4)
     "What do I love?",  # Should remember (within last 2)
+    "What's my name?",  # Should forget (because it was msg #1, and we are now at msg #4)
+    
 ]
 
 for msg in msgs:
