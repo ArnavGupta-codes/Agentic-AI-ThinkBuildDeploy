@@ -55,7 +55,37 @@ from langchain.prompts import PromptTemplate
 #       """
 #   )
 
-BUG_DETECTOR_PROMPT = None  # TODO: Replace None with your PromptTemplate
+BUG_DETECTOR_PROMPT = PromptTemplate(
+    input_variables=["code", "language"],
+    template="""You are an expert code reviewer.
+Analyze the following {language} code and identify bugs. Check for:
+- Logic errors
+- Syntax issues
+- Edge cases
+- Off-by-one errors
+- Null/None handling
+- Type mismatches
+
+IMPORTANT RULES:
+- Report each bug as a SEPARATE block. Do not merge multiple bugs into one.
+- Every field (BUG, SEVERITY, LINE, SUGGESTION) must be on exactly ONE line. No line breaks within a field.
+- Keep descriptions concise and on a single line.
+
+For EACH bug found, output in EXACTLY this format:
+BUG: <one-line description of this specific bug>
+SEVERITY: <critical|high|medium|low>
+LINE: <line number or "unknown">
+SUGGESTION: <one-line fix suggestion>
+---
+
+If no bugs are found, output exactly:
+NO_BUGS_FOUND
+
+Code:
+{code}
+"""
+)
+
 
 
 # ──────────────────────────────────────────────
@@ -91,4 +121,26 @@ BUG_DETECTOR_PROMPT = None  # TODO: Replace None with your PromptTemplate
 #       """
 #   )
 
-COORDINATOR_PROMPT = None  # TODO: Replace None with your PromptTemplate
+COORDINATOR_PROMPT = PromptTemplate(
+    input_variables=["code", "language", "bug_report", "context"],
+    template="""You are a helpful coding mentor.
+A student submitted the following {language} code:
+{code}
+Context from student:
+{context}
+Here is the bug analysis:
+{bug_report}
+Your job is to:
+1. Write a clear and helpful summary of the issues
+2. Help the student understand how to improve
+3. Assign a score from 0 to 100
+Tips:
+- Be encouraging but honest
+- Score guide: 90-100 = excellent, 70-89 = good, 50-69 = needs work, <50 = significant issues
+- The summary should help the student LEARN, not just list errors
+
+Output in EXACTLY this format:
+SUMMARY: <2-3 sentence helpful explanation>
+SCORE: <number between 0 and 100>
+"""
+)

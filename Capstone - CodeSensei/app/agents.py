@@ -77,7 +77,60 @@ def parse_bug_report(raw_output: str) -> List[BugReport]:
     #   raw = "BUG: Off by one\nSEVERITY: high\nLINE: 5\nSUGGESTION: Use < instead of <=\n---"
     #   result = [BugReport(bug_description="Off by one", severity=Severity.HIGH, ...)]
 
-    pass  # ← Replace this with your implementation
+    #pass  # ← Replace this with your implementation
+    if "NO_BUGS_FOUND" in raw_output:
+        return []
+    
+    bugs=[]
+    blocks = raw_output.split("---")
+    
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+
+        bug_description = ""             #initialise variables
+        severity = Severity.LOW
+        line_number = None
+        suggestion = ""
+
+        lines = block.split("\n")
+
+        for line in lines:
+            line = line.strip()
+
+            if line.startswith("BUG:"):
+                bug_description = line.replace("BUG:", "").strip()
+
+            elif line.startswith("SEVERITY:"):
+                sev = line.replace("SEVERITY:", "").strip().lower()
+                if sev in Severity._value2member_map_:
+                    severity = Severity(sev)
+
+            elif line.startswith("LINE:"):
+                line_val = line.replace("LINE:", "").strip()
+                if line_val.lower() != "unknown":
+                    try:
+                        line_number = int(line_val)
+                    except:
+                        line_number = None
+
+            elif line.startswith("SUGGESTION:"):
+                suggestion = line.replace("SUGGESTION:", "").strip()
+
+        try:
+            bug = BugReport(
+                bug_description=bug_description,
+                severity=severity,
+                suggestion=suggestion,
+                line_number=line_number
+            )
+            bugs.append(bug)
+        except:
+            continue
+
+    return bugs
+
 
 
 # ──────────────────────────────────────────────
@@ -125,7 +178,19 @@ def run_bug_detector(code: str, language: str) -> List[BugReport]:
     #   - .invoke() runs the chain with the given inputs
     #   - The LLM returns an AIMessage; use .content to get text
 
-    pass  # ← Replace this with your implementation
+    #pass  # ← Replace this with your implementation
+    chain = BUG_DETECTOR_PROMPT | llm
+
+    result = chain.invoke({
+        "code": code,
+        "language": language
+    })
+
+    raw_output = result.content
+
+    bugs = parse_bug_report(raw_output)
+
+    return bugs
 
 
 # ──────────────────────────────────────────────
@@ -190,4 +255,51 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
     #   - If score parsing fails, default to 50
     #   - If summary parsing fails, use the raw LLM output as summary
 
-    pass  # ← Replace this with your implementation
+    #pass  # ← Replace this with your implementation
+    
+    # Step 1: Get bugs
+    bugs = run_bug_detector(code, language)
+
+    # Step 2: Format bug report text
+    if not bugs:
+        bug_report_text = "No bugs found."
+    else:
+        bug_report_text = ""
+        for i, bug in enumerate(bugs, 1):
+            bug_report_text += f"Bug {i}: {bug.bug_description} (Severity: {bug.severity.value})\n"
+
+    # Step 3: Run coordinator LLM
+    chain = COORDINATOR_PROMPT | llm
+
+    result = chain.invoke({
+        "code": code,
+        "language": language,
+        "bug_report": bug_report_text,
+        "context": context or "No additional context"
+    })
+
+    output = result.content
+
+    # Step 4: Parse summary and score
+    summary = output
+    score = 50
+
+    try:
+        lines = output.split("\n")
+        for line in lines:
+            if line.startswith("SUMMARY:"):
+                summary = line.replace("SUMMARY:", "").strip()
+
+            elif line.startswith("SCORE:"):
+                score_str = line.replace("SCORE:", "").strip()
+                score = int(score_str)
+    except:
+        pass
+
+    # Step 5: Return structured response
+    return ReviewResponse(
+        bugs=bugs,
+        summary=summary,
+        score=score,
+        language=language
+    )

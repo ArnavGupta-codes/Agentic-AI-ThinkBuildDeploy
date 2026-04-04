@@ -69,7 +69,9 @@ class CodeReviewRequest(BaseModel):
     # TODO: Define the fields described above
     # Hint: Use Field(...) for required fields with constraints
     #       Use Optional[str] = None for optional fields
-    pass
+    code: str = Field(..., min_length=1)
+    language: Language
+    context: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -100,7 +102,10 @@ class CodeReviewRequest(BaseModel):
 
 class BugReport(BaseModel):
     # TODO: Define the fields described above
-    pass
+    bug_description: str
+    severity: Severity
+    suggestion: str
+    line_number: Optional[int] = None
 
 
 # ──────────────────────────────────────────────
@@ -134,4 +139,7 @@ class ReviewResponse(BaseModel):
     # TODO: Define the fields described above
     # Hint: Use Field(default_factory=list) for mutable defaults
     #       Use Field(ge=0, le=100) for bounded integers
-    pass
+    bugs: List[BugReport] = Field(default_factory=list)
+    summary: str
+    score: int = Field(..., ge=0, le=100)
+    language: Optional[str] = None

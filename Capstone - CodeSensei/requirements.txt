@@ -8,14 +8,15 @@ langchain-google-genai==2.1.3
 langchain-community==0.3.24
 
 # Data Validation
-pydantic==2.11.1
+# pydantic==2.11.1  # pinned version has no wheel for Python 3.12.10
+pydantic>=2.10.0
 
 # Environment
 python-dotenv==1.1.0
 
 # RAG (Lecture 3 integration)
-chromadb==1.0.7
-sentence-transformers==4.1.0
+#chromadb==1.0.7
+#sentence-transformers==4.1.0
 
 # Testing
 pytest==8.3.3

@@ -91,3 +91,15 @@ def health_check():
 # @app.post("/review-code", response_model=ReviewResponse)
 # def review_code(request: CodeReviewRequest):
 #     ...
+from app.agents import run_coordinator
+@app.post("/review-code", response_model=ReviewResponse)
+def review_code(request: CodeReviewRequest):
+    try:
+        result = run_coordinator(
+            code=request.code,
+            language=request.language.value,
+            context=request.context
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
