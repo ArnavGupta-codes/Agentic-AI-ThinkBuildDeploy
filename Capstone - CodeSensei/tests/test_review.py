@@ -152,18 +152,18 @@ def test_health_endpoint():
 # Uncomment this test once you've completed ALL TODOs
 # and have a valid API key in your .env file.
 
-# def test_review_code_endpoint():
-#     """End-to-end test of the /review-code endpoint."""
-#     from app.main import app
-#
-#     client = TestClient(app)
-#     response = client.post("/review-code", json={
-#         "code": "def add(a, b): return a - b",
-#         "language": "python",
-#         "context": "Addition function"
-#     })
-#     assert response.status_code == 200
-#     data = response.json()
-#     assert "bugs" in data
-#     assert "summary" in data
-#     assert "score" in data
+def test_review_code_endpoint():
+    """End-to-end test of the /review-code endpoint."""
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.post("/review-code", json={
+        "code": "def add(a, b): return a - b",
+        "language": "python",
+        "context": "Addition function"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert "bugs" in data
+    assert "summary" in data
+    assert "score" in data
