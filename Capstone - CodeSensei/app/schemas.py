@@ -80,7 +80,9 @@ class Language(str, Enum):
 #   )
 
 class CodeReviewRequest(BaseModel):
-    pass  # ← Replace with your field definitions
+    code:str = Field(..., min_length=1)
+    language:Language
+    context:Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -108,9 +110,11 @@ class CodeReviewRequest(BaseModel):
 #   )
 
 class BugReport(BaseModel):
-    pass  # ← Replace with your field definitions
-
-
+    bug_description: str = Field(..., min_length=1)
+    severity: Severity
+    suggestion: str = Field(..., min_length=1)
+    line_number: Optional[int] = None
+    
 # ──────────────────────────────────────────────
 # TODO 3: Define the ReviewResponse model
 # ──────────────────────────────────────────────
@@ -125,7 +129,7 @@ class BugReport(BaseModel):
 #       → Use Field(..., ge=0, le=100) for validation
 #
 # Optional fields:
-#   - language (str): The language that was reviewed
+#   - language (Language): The language that was reviewed
 #       → Default to None
 #
 # Example usage:
@@ -133,11 +137,14 @@ class BugReport(BaseModel):
 #       bugs=[bug1, bug2],
 #       summary="Found 2 bugs...",
 #       score=65,
-#       language="python"
+#       language=Language.PYTHON
 #   )
 
 class ReviewResponse(BaseModel):
-    pass  # ← Replace with your field definitions
+    summary: str = Field(..., min_length=1)
+    score: int = Field(..., ge=0, le=100)
+    bugs: List[BugReport] = Field(default_factory=list)
+    language: Optional[Language] = None
 
 
 # ╔═══════════════════════════════════════════════╗
@@ -173,8 +180,10 @@ class ReviewResponse(BaseModel):
 #   )
 
 class StyleIssue(BaseModel):
-    pass  # ← Replace with your field definitions
-
+        issue: str = Field (..., min_length=1)
+        category: str = Field(..., min_length=1)
+        suggestion: str = Field(..., min_length=1)
+        line_number: Optional[int] = None
 
 # ──────────────────────────────────────────────
 # TODO 5: Define the ConceptExplanation model
@@ -201,8 +210,11 @@ class StyleIssue(BaseModel):
 #   )
 
 class ConceptExplanation(BaseModel):
-    pass  # ← Replace with your field definitions
-
+        concept: str = Field(..., min_length=1)
+        explanation: str = Field(..., min_length=1)
+        related_bug: str = Field(..., min_length=1)
+        resource_link: Optional[str] = None
+        code_example: Optional[str] = None
 
 # ──────────────────────────────────────────────
 # TODO 6: Define the CodingChallenge model
@@ -230,8 +242,11 @@ class ConceptExplanation(BaseModel):
 #   )
 
 class CodingChallenge(BaseModel):
-    pass  # ← Replace with your field definitions
-
+        title: str = Field(..., min_length=1)
+        description: str = Field(..., min_length=1)
+        difficulty: str = Field(..., min_length=1)
+        starter_code: str = Field(..., min_length=1)
+        hint: Optional[str] = None
 
 # ──────────────────────────────────────────────
 # TODO 7: Define the FullReviewResponse model
@@ -248,15 +263,21 @@ class CodingChallenge(BaseModel):
 #   - score (int): 0-100, validated with ge=0, le=100
 #
 # Optional fields:
-#   - language (str): Language reviewed (default None)
+#   - language (Language): Language reviewed (default None)
 #   - reasoning_trace (str): The ReAct agent's reasoning log
 #       → Shows the agent's thought process (default None)
 #
 # Hint: Use Field(default_factory=list) for all list fields
 
 class FullReviewResponse(BaseModel):
-    pass  # ← Replace with your field definitions
-
+    summary: str = Field(..., min_length=1)
+    score: int = Field(..., ge=0, le=100)
+    bugs: List[BugReport] = Field(default_factory=list)
+    style_issues: List[StyleIssue] = Field(default_factory=list)
+    explanations: List[ConceptExplanation] = Field(default_factory=list)
+    challenges: List[CodingChallenge] = Field(default_factory=list)
+    language: Optional[Language] = None
+    reasoning_trace: Optional[str] = None
 
 # ──────────────────────────────────────────────
 # TODO 8: Define the VoiceReviewRequest model
@@ -285,4 +306,6 @@ class FullReviewResponse(BaseModel):
 #   )
 
 class VoiceReviewRequest(BaseModel):
-    pass  # ← Replace with your field definitions
+    context: Optional[str] = None
+    use_advanced: bool = False
+    language: Language

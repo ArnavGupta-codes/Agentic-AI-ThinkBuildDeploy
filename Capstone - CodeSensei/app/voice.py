@@ -40,6 +40,9 @@ from typing import Tuple
 
 from app.config import llm, GEMINI_API_KEY
 from app.prompts import TRANSCRIPT_PARSER_PROMPT
+import google.generativeai as genai  # type: ignore
+genai.configure(api_key=GEMINI_API_KEY)  # type: ignore
+model = genai.GenerativeModel("gemini-2.5-flash")  # type: ignore
 
 
 # ──────────────────────────────────────────────
@@ -107,7 +110,21 @@ def transcribe_audio(audio_bytes: bytes, content_type: str = "audio/wav") -> str
     Returns:
         Transcribed text string
     """
-    pass  # ← Replace with your implementation
+    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+    audio_part = {
+            "inline_data": {
+                "mime_type": content_type,
+                "data": audio_b64
+            }
+        }
+    response = model.generate_content([
+          "Please transcribe the following audio exactly. "
+          "The speaker is describing or dictating code. "
+          "Transcribe everything they say word for word.",
+          audio_part
+      ])
+    return response.text
+
 
 
 # ──────────────────────────────────────────────
@@ -169,4 +186,23 @@ def extract_code_from_transcript(transcript: str, language: str) -> Tuple[str, s
     Returns:
         Tuple of (extracted_code, extracted_context)
     """
-    pass  # ← Replace with your implementation
+    chain = TRANSCRIPT_PARSER_PROMPT | llm
+    try:
+        result = chain.invoke({
+            "transcript": transcript,
+            "language": language,
+        })
+        # Parse the result to extract CODE and CONTEXT
+        raw_output = str(result.content)
+        code = ""
+        context = ""
+        for line in raw_output.splitlines():
+            if line.startswith("CODE:"):
+                code = line.split("CODE:")[1].strip()
+            elif line.startswith("CONTEXT:"):
+                context = line.split("CONTEXT:")[1].strip()
+        return code if code else transcript, context
+    except Exception as e:
+        # If parsing fails, return the raw transcript as code
+        return transcript, ""   
+        

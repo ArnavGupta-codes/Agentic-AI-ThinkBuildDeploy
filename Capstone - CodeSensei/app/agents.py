@@ -27,7 +27,7 @@ Concepts used:
 from typing import List
 from app.config import llm
 from app.prompts import BUG_DETECTOR_PROMPT, COORDINATOR_PROMPT
-from app.schemas import BugReport, ReviewResponse, Severity
+from app.schemas import BugReport, ReviewResponse, Severity, Language
 
 
 # ╔═══════════════════════════════════════════════╗
@@ -91,8 +91,34 @@ def parse_bug_report(raw_output: str) -> List[BugReport]:
     #   raw = "BUG: Off by one\nSEVERITY: high\nLINE: 5\nSUGGESTION: Use < instead of <=\n---"
     #   result = [BugReport(bug_description="Off by one", severity=Severity.HIGH, ...)]
 
-    pass  # ← Replace with your implementation
+    if "NO_BUGS_FOUND" in raw_output:
+        return []
 
+    bug_reports = []
+
+    blocks = [block.strip() for block in raw_output.split("---") if block.strip()]
+    for block in blocks:
+        try:
+            lines = block.splitlines()
+            bug_description = next((line.split("BUG:")[1].strip() for line in lines if line.startswith("BUG:")), "Unknown bug")
+            severity_str = next((line.split("SEVERITY:")[1].strip().lower() for line in lines if line.startswith("SEVERITY:")), "low")
+            severity = Severity(severity_str) if severity_str in Severity.__members__.values() else Severity.LOW
+            line_info = next((line.split("LINE:")[1].strip() for line in lines if line.startswith("LINE:")), "unknown")
+            line_number = int(line_info) if line_info.isdigit() else None
+            suggestion = next((line.split("SUGGESTION:")[1].strip() for line in lines if line.startswith("SUGGESTION:")), "No suggestion provided")
+
+            bug_report = BugReport(
+                bug_description=bug_description,
+                severity=severity,
+                line_number=line_number,
+                suggestion=suggestion
+            )
+            bug_reports.append(bug_report)
+        except Exception as e:
+            # If parsing fails, skip this block and continue
+            print(f"Warning: Failed to parse bug block. Error: {e}")
+            continue
+    return bug_reports   
 
 # ──────────────────────────────────────────────
 # Agent 1: Bug Detector ("The Grader")
@@ -131,7 +157,11 @@ def run_bug_detector(code: str, language: str) -> List[BugReport]:
     # The pipe operator (|) is LangChain's modern way to
     # create chains. It's equivalent to the old LLMChain class.
 
-    pass  # ← Replace with your implementation
+    chain = BUG_DETECTOR_PROMPT | llm
+    result = chain.invoke({"code": code, "language": language})
+    raw_output = str(result.content)
+    bugs = parse_bug_report(raw_output)
+    return bugs
 
 
 # ──────────────────────────────────────────────
@@ -192,7 +222,46 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
     #   - The coordinator prompt MUST output SUMMARY: and SCORE:
     #     because your parser depends on it
 
-    pass  # ← Replace with your implementation
+    bugs = run_bug_detector(code, language)
+    if bugs:
+        bugs_str = "\n".join([f"Bug {i+1:d}: {bug.bug_description} (Severity: {bug.severity.value})" for i, bug in enumerate(bugs)])
+    else :
+        bugs_str = "No bugs found."
+    chain = COORDINATOR_PROMPT | llm
+    result = chain.invoke({
+        "code": code,
+        "language": language,
+        "bug_report": bugs_str,
+        "context": context or "No additional context"
+    })
+    raw_output = result.content
+    summary = "Summary not available."
+    score = 50  # Default score if parsing fails
+    try:
+        for line in raw_output.splitlines(): # type: ignore
+            if line.startswith("SUMMARY:"):
+                summary = line.split("SUMMARY:")[1].strip()
+            elif line.startswith("SCORE:"):
+                score_str = line.split("SCORE:")[1].strip()
+                score = int(score_str) if score_str.isdigit() else 50
+    except Exception as e:
+        print(f"Warning: Failed to parse coordinator output. Error: {e}")
+        summary = str(raw_output)  # Fallback to raw output as summary.
+    
+    # Ensure summary is a string
+    if isinstance(summary, list):
+        summary = " ".join(summary)
+    summary = str(summary)
+    
+    # Convert language string to Language enum
+    language_enum = Language(language) if isinstance(language, str) else language
+    
+    return ReviewResponse(
+        bugs=bugs,
+        summary=summary,
+        score=score,
+        language=language_enum
+    )
 
 
 # ╔═══════════════════════════════════════════════╗
@@ -205,17 +274,51 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
 # after you've defined them in Part 2 of those files.
 # Uncomment the imports below once you've created them:
 #
-# from app.prompts import (
-#     STYLE_QUALITY_PROMPT,
-#     CONCEPT_EXPLAINER_PROMPT,
-#     CHALLENGE_GENERATOR_PROMPT,
-# )
-# from app.schemas import (
-#     StyleIssue,
-#     ConceptExplanation,
-#     CodingChallenge,
-#     FullReviewResponse,
-# )
+from app.prompts import (
+    STYLE_QUALITY_PROMPT,
+    CONCEPT_EXPLAINER_PROMPT,
+    CHALLENGE_GENERATOR_PROMPT,
+)
+from app.schemas import (
+    StyleIssue,
+    ConceptExplanation,
+    CodingChallenge,
+    FullReviewResponse,
+)
+
+
+# ──────────────────────────────────────────────
+# Helper: Parse Style Quality Output
+# ──────────────────────────────────────────────
+
+def parse_style_report(raw_output: str) -> List[StyleIssue]:
+    if "NO_STYLE_ISSUES_FOUND" in raw_output:
+        return []
+
+    style_issues = []
+    blocks = [block.strip() for block in raw_output.split("---") if block.strip()]
+    
+    for block in blocks:
+        try:
+            lines = block.splitlines()
+            issue = next((line.split("ISSUE:")[1].strip() for line in lines if line.startswith("ISSUE:")), "Unknown issue")
+            category = next((line.split("CATEGORY:")[1].strip() for line in lines if line.startswith("CATEGORY:")), "general")
+            line_info = next((line.split("LINE:")[1].strip() for line in lines if line.startswith("LINE:")), "unknown")
+            line_number = int(line_info) if line_info.isdigit() else None
+            suggestion = next((line.split("SUGGESTION:")[1].strip() for line in lines if line.startswith("SUGGESTION:")), "No suggestion provided")
+
+            style_issue = StyleIssue(
+                issue=issue,
+                category=category,
+                line_number=line_number,
+                suggestion=suggestion
+            )
+            style_issues.append(style_issue)
+        except Exception as e:
+            print(f"Warning: Failed to parse style issue block. Error: {e}")
+            continue
+    
+    return style_issues
 
 
 # ──────────────────────────────────────────────
@@ -239,8 +342,41 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
 # Hint: Consider creating a parse_style_report() helper
 # function, similar to parse_bug_report().
 
-# def run_style_quality(code: str, language: str) -> List[StyleIssue]:
-#     pass  # ← Uncomment and implement
+def run_style_quality(code: str, language: str) -> List[StyleIssue]:
+    chain = STYLE_QUALITY_PROMPT | llm
+    result = chain.invoke({"code": code, "language": language})
+    raw_output = str(result.content)
+    style_issues = parse_style_report(raw_output)
+    return style_issues
+
+def parse_concept_report(raw_output: str) -> List[ConceptExplanation]:
+    if "NO_CONCEPTS_FOUND" in raw_output:
+        return []
+
+    concepts = []
+    blocks = [block.strip() for block in raw_output.split("---") if block.strip()]
+    
+    for block in blocks:
+        try:
+            lines = block.splitlines()
+            concept = next((line.split("CONCEPT:")[1].strip() for line in lines if line.startswith("CONCEPT:")), "Unknown concept")
+            explanation = next((line.split("EXPLANATION:")[1].strip() for line in lines if line.startswith("EXPLANATION:")), "No explanation provided")
+            related_bug = next((line.split("RELATED_BUG:")[1].strip() for line in lines if line.startswith("RELATED_BUG:")), "Unknown bug")
+            code_example = next((line.split("CODE_EXAMPLE:")[1].strip() for line in lines if line.startswith("CODE_EXAMPLE:")), None)
+
+            concept_explanation = ConceptExplanation(
+                concept=concept,
+                explanation=explanation,
+                related_bug=related_bug,
+                code_example=code_example,
+                resource_link=None
+            )
+            concepts.append(concept_explanation)
+        except Exception as e:
+            print(f"Warning: Failed to parse concept block. Error: {e}")
+            continue
+    
+    return concepts
 
 
 # ──────────────────────────────────────────────
@@ -280,10 +416,73 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
 # set rag_context = "No documentation available" and
 # let the LLM explain from its own knowledge.
 
-# def run_concept_explainer(
-#     code: str, language: str, bug_report: str
-# ) -> List[ConceptExplanation]:
-#     pass  # ← Uncomment and implement
+def run_concept_explainer(code: str, language: str, bug_report: str) -> List[ConceptExplanation]:
+    # Try to retrieve RAG context from ChromaDB
+    rag_context = "No documentation available"
+    try:
+        # Chroma DB isnt set up lol.
+        pass
+    except Exception as e:
+        print(f"Warning: Failed to retrieve RAG context. Using LLM knowledge only. Error: {e}")
+        rag_context = "No documentation available"
+    
+    chain = CONCEPT_EXPLAINER_PROMPT | llm
+    result = chain.invoke({
+        "code": code,
+        "language": language,
+        "bug_report": bug_report,
+        "rag_context": rag_context
+    })
+    raw_output = str(result.content)
+    concepts = parse_concept_report(raw_output)
+    return concepts
+
+
+# ──────────────────────────────────────────────
+# Helper: Parse Challenge Generator Output
+# ──────────────────────────────────────────────
+
+def parse_challenge_report(raw_output: str) -> List[CodingChallenge]:
+    """
+    Parse the raw text output from the Challenge Generator agent
+    into a list of CodingChallenge Pydantic models.
+
+    Args:
+        raw_output: Raw string output from the LLM
+
+    Returns:
+        List of CodingChallenge objects
+    """
+    if "NO_CHALLENGES_FOUND" in raw_output:
+        return []
+
+    challenges = []
+    blocks = [block.strip() for block in raw_output.split("---") if block.strip()]
+    
+    for block in blocks:
+        try:
+            lines = block.splitlines()
+            title = next((line.split("TITLE:")[1].strip() for line in lines if line.startswith("TITLE:")), "Untitled Challenge")
+            description = next((line.split("DESCRIPTION:")[1].strip() for line in lines if line.startswith("DESCRIPTION:")), "No description")
+            difficulty = next((line.split("DIFFICULTY:")[1].strip() for line in lines if line.startswith("DIFFICULTY:")), "medium")
+            starter_code = next((line.split("STARTER_CODE:")[1].strip() for line in lines if line.startswith("STARTER_CODE:")), "")
+            # Handle escaped newlines in starter code
+            starter_code = starter_code.replace("\\n", "\n")
+            hint = next((line.split("HINT:")[1].strip() for line in lines if line.startswith("HINT:")), None)
+
+            challenge = CodingChallenge(
+                title=title,
+                description=description,
+                difficulty=difficulty,
+                starter_code=starter_code,
+                hint=hint
+            )
+            challenges.append(challenge)
+        except Exception as e:
+            print(f"Warning: Failed to parse challenge block. Error: {e}")
+            continue
+    
+    return challenges
 
 
 # ──────────────────────────────────────────────
@@ -313,10 +512,19 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
 # Tip: The STARTER_CODE may contain escaped newlines.
 # Use .replace("\\n", "\n") to convert them.
 
-# def run_challenge_generator(
-#     language: str, bug_report: str, style_report: str
-# ) -> List[CodingChallenge]:
-#     pass  # ← Uncomment and implement
+def run_challenge_generator(
+    language: str, bug_report: str, style_report: str
+) -> List[CodingChallenge]:
+    
+    chain = CHALLENGE_GENERATOR_PROMPT | llm
+    result = chain.invoke({
+        "language": language,
+        "bug_report": bug_report,
+        "style_report": style_report
+    })
+    raw_output = str(result.content)
+    challenges = parse_challenge_report(raw_output)
+    return challenges
 
 
 # ──────────────────────────────────────────────
@@ -380,7 +588,88 @@ def run_coordinator(code: str, language: str, context: str = "") -> ReviewRespon
 #   Students can see this reasoning in the terminal
 #   (verbose=True) making it transparent and educational.
 
-# def run_react_coordinator(
-#     code: str, language: str, context: str = ""
-# ) -> FullReviewResponse:
-#     pass  # ← Uncomment and implement
+def run_react_coordinator(code: str, language: str, context: str = "") -> FullReviewResponse:
+    reasoning_trace = "Thought: I need to perform a comprehensive code review.\n"
+    
+    try:
+        # Step 1: Detect bugs
+        reasoning_trace += "Action: Calling Bug Detector agent\n"
+        bugs = run_bug_detector(code, language)
+        reasoning_trace += f"Observation: Found {len(bugs)} bug(s)\n"
+        
+        # Step 2: Check style and quality
+        reasoning_trace += "Thought: Now I need to check code style and quality.\n"
+        reasoning_trace += "Action: Calling Style & Quality agent\n"
+        style_issues = run_style_quality(code, language)
+        reasoning_trace += f"Observation: Found {len(style_issues)} style issue(s)\n"
+        
+        # Step 3: Format reports for concept explainer
+        if bugs:
+            bugs_str = "\n".join([f"- {bug.bug_description} (Severity: {bug.severity.value})" for bug in bugs])
+        else:
+            bugs_str = "No bugs found."
+        
+        # Step 4: Explain concepts
+        reasoning_trace += "Thought: Now I should explain the CS concepts behind these bugs.\n"
+        reasoning_trace += "Action: Calling Concept Explainer agent\n"
+        concepts = run_concept_explainer(code, language, bugs_str)
+        reasoning_trace += f"Observation: Generated {len(concepts)} concept explanation(s)\n"
+        
+        # Step 5: Generate challenges
+        reasoning_trace += "Thought: Finally, I should generate challenges to help the student improve.\n"
+        reasoning_trace += "Action: Calling Challenge Generator agent\n"
+        
+        if style_issues:
+            style_str = "\n".join([f"- {issue.issue} (Category: {issue.category})" for issue in style_issues])
+        else:
+            style_str = "No style issues found."
+        
+        challenges = run_challenge_generator(language, bugs_str, style_str)
+        reasoning_trace += f"Observation: Generated {len(challenges)} challenge(s)\n"
+        
+        # Step 6: Calculate overall score and summary
+        reasoning_trace += "Thought: Time to calculate the overall code quality score.\n"
+        base_score = 100
+        base_score -= len(bugs) * 10  # -10 per bug
+        base_score -= len(style_issues) * 3  # -3 per style issue
+        score = max(0, min(100, base_score))  # Clamp to 0-100
+        
+        # Create summary
+        summary = f"Code review completed. Found {len(bugs)} bug(s) and {len(style_issues)} style issue(s). "
+        summary += f"Quality score: {score}/100. "
+        if len(concepts) > 0:
+            summary += f"Generated {len(concepts)} educational concept(s) and {len(challenges)} challenge(s) for improvement."
+        
+        reasoning_trace += f"Observation: Overall score calculated as {score}/100\n"
+        
+        # Convert language string to Language enum
+        language_enum = Language(language) if isinstance(language, str) else language
+        
+        return FullReviewResponse(
+            bugs=bugs,
+            style_issues=style_issues,
+            explanations=concepts,
+            challenges=challenges,
+            summary=summary,
+            score=score,
+            language=language_enum,
+            reasoning_trace=reasoning_trace
+        )
+        
+    except Exception as e:
+        # Fallback on error
+        print(f"Error in ReAct coordinator: {e}")
+        reasoning_trace += f"Error: {str(e)}\n"
+        
+        language_enum = Language(language) if isinstance(language, str) else language
+        
+        return FullReviewResponse(
+            bugs=[],
+            style_issues=[],
+            explanations=[],
+            challenges=[],
+            summary=f"Error during review: {str(e)}",
+            score=50,
+            language=language_enum,
+            reasoning_trace=reasoning_trace
+        )

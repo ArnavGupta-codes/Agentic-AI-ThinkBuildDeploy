@@ -21,8 +21,10 @@ Concepts used:
 ═══════════════════════════════════════════════
 """
 
-from fastapi import FastAPI, HTTPException
-from app.schemas import CodeReviewRequest, ReviewResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from app.schemas import CodeReviewRequest, ReviewResponse, FullReviewResponse, VoiceReviewRequest
+from app.agents import run_react_coordinator, run_coordinator
+from app.voice import transcribe_audio, extract_code_from_transcript
 
 # ──────────────────────────────────────────────
 # FastAPI App Instance (PROVIDED)
@@ -100,7 +102,19 @@ def health_check():
 #   }
 
 # ← Your POST /review-code endpoint here
+from app.agents import run_coordinator
 
+@app.post("/review-code", response_model=ReviewResponse)
+def review_code(request: CodeReviewRequest):
+    try:
+        review = run_coordinator(
+            code=request.code,
+            language=request.language.value,
+            context=str(request.context)
+        )
+        return review
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ╔═══════════════════════════════════════════════╗
 # ║       PART 2 — Capstone Extension TODOs        ║
@@ -110,11 +124,6 @@ def health_check():
 # NOTE: You'll need to import additional functions and schemas.
 # Uncomment the imports below once you've implemented them:
 #
-# from app.agents import run_react_coordinator
-# from app.schemas import FullReviewResponse, VoiceReviewRequest
-# from app.voice import transcribe_audio, extract_code_from_transcript
-# from fastapi import UploadFile, File, Form
-
 
 # ──────────────────────────────────────────────
 # TODO 2: Advanced Code Review Endpoint
@@ -151,7 +160,17 @@ def health_check():
 #       "reasoning_trace": "Thought: I should first..."
 #   }
 
-# ← Your POST /review-code-advanced endpoint here
+@app.post("/review-code-advanced", response_model=FullReviewResponse)
+def review_code_advanced(request: CodeReviewRequest):
+    try:
+        review = run_react_coordinator(
+            code=request.code,
+            language=request.language.value,
+            context=request.context or ""
+        )
+        return review
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -219,3 +238,49 @@ def health_check():
 #     -F "use_advanced=false"
 
 # ← Your POST /review-voice endpoint here
+@app.post("/review-voice")
+async def review_voice(
+    audio: UploadFile = File(...),
+    language: str = Form(...),
+    context: str = Form(None),
+    use_advanced: bool = Form(False),
+):
+    try:
+        # Validate audio file type
+        supported_types = {"audio/wav", "audio/mp3", "audio/mpeg", "audio/ogg", "audio/webm"}
+        if audio.content_type not in supported_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported audio type. Supported: {', '.join(supported_types)}"
+            )
+        
+        # Read audio file
+        audio_bytes = await audio.read()
+        
+        # Transcribe audio
+        transcript = transcribe_audio(audio_bytes, audio.content_type)
+        
+        # Extract code from transcript
+        code, extracted_context = extract_code_from_transcript(transcript, language)
+        
+        # Combine contexts
+        full_context = context or ""
+        if extracted_context and extracted_context.lower() != "none":
+            full_context += f" {extracted_context}"
+        
+        # Run the appropriate review
+        if use_advanced:
+            review = run_react_coordinator(code=code, language=language, context=full_context)
+        else:
+            review = run_coordinator(code=code, language=language, context=full_context)
+        
+        # Return response with transcript and extracted code
+        response = review.dict() if hasattr(review, 'dict') else dict(review)
+        response["transcript"] = transcript
+        response["extracted_code"] = code
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
