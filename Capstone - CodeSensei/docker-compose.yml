@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────────
+# CodeSensei Docker Compose
+# ─────────────────────────────────────────────
+# Runs CodeSensei + ChromaDB together.
+# Usage: docker-compose up --build
+
+version: "3.8"
+
+services:
+  # ── CodeSensei API ──
+  app:
+    build: .
+    container_name: codesensei-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - chromadb
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8001
+    restart: unless-stopped
+
+  # ── ChromaDB (Vector Database for RAG) ──
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: codesensei-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+volumes:
+  chroma_data:

@@ -1,0 +1,15 @@
+{
+  "name": "agentic-ai-real-world",
+  "version": "1.0.0",
+  "description": "Real-world examples: MCP Server, Agent Deployment, Agentic AI Beyond Chatbot",
+  "scripts": {
+    "mcp-server": "node mcp-server/server.js",
+    "mcp-client": "node mcp-server/client.js",
+    "agent-worker": "node agent-deployment/worker.js",
+    "agent-orchestrator": "node agent-deployment/orchestrator.js",
+    "pipeline": "node agentic-ai/pipeline.js",
+    "email-agent": "node agentic-ai/email-agent.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {}
+}

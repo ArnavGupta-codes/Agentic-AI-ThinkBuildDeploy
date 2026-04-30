@@ -6,15 +6,20 @@ Run these tests to verify your implementations.
 Usage:
     pytest tests/ -v
 
-These tests validate:
-1. Pydantic schemas accept valid data
-2. Bug report parser works correctly
-3. The /health endpoint responds
-4. The /review-code endpoint works end-to-end (requires API key)
+═══════════════════════════════════════════════
+  Tests are organized by Part:
+    Part 1 tests: Schemas, Parser, Health, /review-code
+    Part 2 tests: Extended schemas, Tools, Voice, /review-code-advanced
+═══════════════════════════════════════════════
 """
 
 import pytest
 from fastapi.testclient import TestClient
+
+
+# ╔═══════════════════════════════════════════════╗
+# ║            PART 1 — Eval 2 Tests               ║
+# ╚═══════════════════════════════════════════════╝
 
 
 # ──────────────────────────────────────────────
@@ -149,15 +154,132 @@ def test_health_endpoint():
 # ──────────────────────────────────────────────
 # Test 4: End-to-End (requires GEMINI_API_KEY)
 # ──────────────────────────────────────────────
-# Uncomment this test once you've completed ALL TODOs
+# Uncomment this test once you've completed ALL Part 1 TODOs
 # and have a valid API key in your .env file.
 
-def test_review_code_endpoint():
-    """End-to-end test of the /review-code endpoint."""
+# def test_review_code_endpoint():
+#     """End-to-end test of the /review-code endpoint."""
+#     from app.main import app
+#
+#     client = TestClient(app)
+#     response = client.post("/review-code", json={
+#         "code": "def add(a, b): return a - b",
+#         "language": "python",
+#         "context": "Addition function"
+#     })
+#     assert response.status_code == 200
+#     data = response.json()
+#     assert "bugs" in data
+#     assert "summary" in data
+#     assert "score" in data
+
+
+# ╔═══════════════════════════════════════════════╗
+# ║       PART 2 — Capstone Extension Tests        ║
+# ╚═══════════════════════════════════════════════╝
+# Uncomment these tests as you complete Part 2 TODOs.
+
+
+# # ──────────────────────────────────────────────
+# # Test 5: Part 2 Schema Validation
+# # ──────────────────────────────────────────────
+
+def test_style_issue_creation():
+    """Test that StyleIssue can be created."""
+    from app.schemas import StyleIssue
+
+    issue = StyleIssue(
+        issue="Variable name 'x' is not descriptive",
+        category="naming",
+        suggestion="Use a descriptive name like 'count'",
+        line_number=3
+    )
+    assert issue.category == "naming"
+    assert issue.line_number == 3
+
+
+def test_concept_explanation_creation():
+    """Test that ConceptExplanation can be created."""
+    from app.schemas import ConceptExplanation
+
+    explanation = ConceptExplanation(
+        concept="Off-by-one error",
+        explanation="Occurs when a loop iterates one too many or few times",
+        related_bug="Loop goes past array bounds",
+        code_example="for i in range(len(arr)):"
+    )
+    assert explanation.concept == "Off-by-one error"
+
+
+def test_coding_challenge_creation():
+    """Test that CodingChallenge can be created."""
+    from app.schemas import CodingChallenge
+
+    challenge = CodingChallenge(
+        title="Handle Empty Input",
+        description="Modify the function to handle empty lists",
+        difficulty="easy",
+        starter_code="def find_max(numbers):\n    pass",
+        hint="What should the function return for []?"
+    )
+    assert challenge.difficulty == "easy"
+
+
+def test_full_review_response_creation():
+    """Test that FullReviewResponse can be created."""
+    from app.schemas import FullReviewResponse
+
+    response = FullReviewResponse(
+        bugs=[],
+        style_issues=[],
+        explanations=[],
+        challenges=[],
+        summary="Great code!",
+        score=95,
+        language="python",
+        reasoning_trace="Thought: checking bugs..."
+    )
+    assert response.score == 95
+    assert response.reasoning_trace is not None
+
+
+def test_voice_review_request():
+    """Test VoiceReviewRequest model."""
+    from app.schemas import VoiceReviewRequest, Language
+
+    req = VoiceReviewRequest(
+        language=Language.PYTHON,
+        context="Sorting function",
+        use_advanced=True
+    )
+    assert req.use_advanced is True
+
+
+# ──────────────────────────────────────────────
+# Test 6: Voice Transcription
+# ──────────────────────────────────────────────
+
+def test_extract_code_from_transcript():
+    """Test code extraction from a spoken transcript."""
+    from app.voice import extract_code_from_transcript
+
+    # Note: This test requires the LLM, so it needs an API key
+    transcript = "define a function called add that takes a and b and returns a plus b"
+    code, context = extract_code_from_transcript(transcript, "python")
+    assert "def" in code
+    assert "add" in code
+
+
+# ──────────────────────────────────────────────
+# Test 7: Advanced Review Endpoint (requires API key)
+# ──────────────────────────────────────────────
+
+def test_review_code_advanced_endpoint():
+    """End-to-end test of the /review-code-advanced endpoint."""
     from app.main import app
 
     client = TestClient(app)
-    response = client.post("/review-code", json={
+    response = client.post("/review-code-advanced", json={
         "code": "def add(a, b): return a - b",
         "language": "python",
         "context": "Addition function"
@@ -165,5 +287,24 @@ def test_review_code_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert "bugs" in data
-    assert "summary" in data
-    assert "score" in data
+    assert "style_issues" in data
+    assert "explanations" in data
+    assert "challenges" in data
+
+
+# ──────────────────────────────────────────────
+# Test 8: Voice Review Endpoint (requires API key + audio)
+# ──────────────────────────────────────────────
+
+def test_review_voice_endpoint_invalid_file():
+    """Test that /review-voice rejects non-audio files."""
+    from app.main import app
+
+    client = TestClient(app)
+    # Send a text file instead of audio
+    response = client.post(
+        "/review-voice",
+        files={"audio": ("test.txt", b"not audio", "text/plain")},
+        data={"language": "python"}
+    )
+    assert response.status_code == 400
