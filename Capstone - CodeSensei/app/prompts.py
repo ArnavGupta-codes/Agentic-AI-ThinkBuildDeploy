@@ -68,7 +68,37 @@ from langchain.prompts import PromptTemplate
 #       """
 #   )
 
-BUG_DETECTOR_PROMPT = None  # ← Replace with your PromptTemplate
+BUG_DETECTOR_PROMPT = PromptTemplate(
+    input_variables=["code", "language"],
+    template="""You are an expert code reviewer.
+Analyze the following {language} code and identify bugs. Check for:
+- Logic errors
+- Syntax issues
+- Edge cases
+- Off-by-one errors
+- Null/None handling
+- Type mismatches
+
+IMPORTANT RULES:
+- Report each bug as a SEPARATE block. Do not merge multiple bugs into one.
+- Every field (BUG, SEVERITY, LINE, SUGGESTION) must be on exactly ONE line. No line breaks within a field.
+- Keep descriptions concise and on a single line.
+
+For EACH bug found, output in EXACTLY this format:
+BUG: <one-line description of this specific bug>
+SEVERITY: <critical|high|medium|low>
+LINE: <line number or "unknown">
+SUGGESTION: <one-line fix suggestion>
+---
+
+If no bugs are found, output exactly:
+NO_BUGS_FOUND
+
+Code:
+{code}
+"""
+)
+
 
 
 # ──────────────────────────────────────────────
@@ -101,11 +131,32 @@ BUG_DETECTOR_PROMPT = None  # ← Replace with your PromptTemplate
 #       template="""You are a friendly mentor...
 #       ...
 #       SUMMARY: <summary>
-#       SCORE: <number>"""
+#       SCORE: <number>"""   
 #   )
 
-COORDINATOR_PROMPT = None  # ← Replace with your PromptTemplate
+COORDINATOR_PROMPT = PromptTemplate(
+    input_variables=["code", "language", "bug_report", "context"],
+    template="""You are a helpful coding mentor.
+A student submitted the following {language} code:
+{code}
+Context from student:
+{context}
+Here is the bug analysis:
+{bug_report}
+Your job is to:
+1. Write a clear and helpful summary of the issues
+2. Help the student understand how to improve
+3. Assign a score from 0 to 100
+Tips:
+- Be encouraging but honest
+- Score guide: 90-100 = excellent, 70-89 = good, 50-69 = needs work, <50 = significant issues
+- The summary should help the student LEARN, not just list errors
 
+Output in EXACTLY this format:
+SUMMARY: <2-3 sentence helpful explanation>
+SCORE: <number between 0 and 100>
+"""
+)
 
 # ╔═══════════════════════════════════════════════╗
 # ║       PART 2 — Capstone Extension TODOs        ║
@@ -144,8 +195,33 @@ COORDINATOR_PROMPT = None  # ← Replace with your PromptTemplate
 #       """
 #   )
 
-STYLE_QUALITY_PROMPT = None  # ← Replace with your PromptTemplate
+STYLE_QUALITY_PROMPT = PromptTemplate(
+    input_variables=["code", "language"],
+    template="""
+You are a code quality expert reviewing {language} code.
 
+Analyze the code for style and quality issues including:
+- Naming conventions
+- Function length
+- Code duplication
+- Documentation
+- Complexity
+- Best practices
+
+Code: {code}
+
+For EACH issue found, output EXACTLY in this format:
+
+ISSUE: <description>
+CATEGORY: <naming|structure|complexity|best_practice>
+LINE: <line number or "unknown">
+SUGGESTION: <how to improve>
+---
+
+If no issues found, output:
+NO_STYLE_ISSUES
+"""
+)
 
 # ──────────────────────────────────────────────
 # TODO 4: Concept Explainer Prompt Template
@@ -175,8 +251,29 @@ STYLE_QUALITY_PROMPT = None  # ← Replace with your PromptTemplate
 # (ChromaDB retrieval). Tell the LLM to use it as
 # reference material for explanations.
 
-CONCEPT_EXPLAINER_PROMPT = None  # ← Replace with your PromptTemplate
+CONCEPT_EXPLAINER_PROMPT = PromptTemplate(
+    input_variables=["code", "language", "bug_report", "rag_context"],
+    template="""
+You are a computer science tutor.
+Use the provided documentation context to explain concepts clearly.
 
+RAG Context: {rag_context}
+Code ({language}): {code}
+Bug Report:{bug_report}
+
+For each bug, identify the underlying concept and explain it.
+
+Output EXACTLY in this format:
+
+CONCEPT: <concept name>
+EXPLANATION: <clear explanation>
+RELATED_BUG: <bug description>
+CODE_EXAMPLE: <correct code or "none">
+---
+
+Be clear, simple and educational.
+"""
+)
 
 # ──────────────────────────────────────────────
 # TODO 5: Challenge Generator Prompt Template
@@ -204,7 +301,28 @@ CONCEPT_EXPLAINER_PROMPT = None  # ← Replace with your PromptTemplate
 # Tip: Challenges should be focused and educational.
 # Each should target a specific weakness found in the review.
 
-CHALLENGE_GENERATOR_PROMPT = None  # ← Replace with your PromptTemplate
+CHALLENGE_GENERATOR_PROMPT = PromptTemplate(
+    input_variables=["language", "bug_report", "style_report"],
+    template="""
+You are a coding mentor.
+Based on the student's weaknesses, generate 1-3 coding challenges.
+
+Language: {language}
+Bug Report: {bug_report}
+Style Issues: {style_report}
+
+For EACH challenge, output EXACTLY:
+
+TITLE: <challenge name>
+DESCRIPTION: <task description>
+DIFFICULTY: <easy|medium|hard>
+STARTER_CODE: <code template using \\n for newlines>
+HINT: <hint or "none">
+---
+
+Make challenges focused and educational.
+"""
+)
 
 
 # ──────────────────────────────────────────────
@@ -247,4 +365,67 @@ CHALLENGE_GENERATOR_PROMPT = None  # ← Replace with your PromptTemplate
 #       CONTEXT: <extracted context or "none">"""
 #   )
 
-TRANSCRIPT_PARSER_PROMPT = None  # ← Replace with your PromptTemplate
+TRANSCRIPT_PARSER_PROMPT = PromptTemplate(
+    input_variables=["transcript", "language"],
+    template="""
+You are an expert at converting spoken programming descriptions into correctly formatted code.
+
+Language: {language}
+Transcript: {transcript}
+
+Your task:
+1. Convert spoken phrases into valid code syntax
+2. Fix formatting and indentation
+3. Extract any additional context mentioned by the student
+
+Common speech-to-code patterns (not exhaustive, generalize intelligently):
+- "open parenthesis" → (
+- "close parenthesis" → )
+- "open bracket" → [
+- "close bracket" → ]
+- "open brace" → {{
+- "close brace" → }}
+- "colon" → :
+- "comma" → ,
+- "dot" → .
+- "equals" / "equal to" → =
+- "double equals" → ==
+- "not equal" → !=
+- "greater than" → >
+- "less than" → <
+- "greater than or equal to" → >=
+- "less than or equal to" → <=
+- "plus" → +
+- "minus" → -
+- "times" / "multiply" → *
+- "divide" → /
+- "modulo" → %
+- "underscore" → _
+- "newline" → new line
+- "indent" → increase indentation level
+- "dedent" → decrease indentation level
+- "quote" / "double quote" → " "
+- "single quote" → ' '
+
+Also handle:
+- Function definitions (e.g., "define function add")
+- Loops ("for each", "while")
+- Conditionals ("if", "else if", "else")
+- Return statements
+- Variable assignments
+- Lists, dictionaries, and indexing
+- Basic data structures and control flow
+
+Be flexible, students may not speak perfectly.
+
+Context extraction:
+- If the student explains what the code does (e.g., "this function sorts a list"),
+  extract it as CONTEXT.
+- If no context is present, return "none".
+
+Output EXACTLY in this format:
+
+CODE: <clean, properly formatted code>
+CONTEXT: <extracted context or "none">
+"""
+)

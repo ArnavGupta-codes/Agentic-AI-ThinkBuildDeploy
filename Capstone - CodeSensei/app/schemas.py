@@ -80,7 +80,12 @@ class Language(str, Enum):
 #   )
 
 class CodeReviewRequest(BaseModel):
-    pass  # ← Replace with your field definitions
+    # TODO: Define the fields described above
+    # Hint: Use Field(...) for required fields with constraints
+    #       Use Optional[str] = None for optional fields
+    code: str = Field(..., min_length=1)
+    language: Language
+    context: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -108,7 +113,11 @@ class CodeReviewRequest(BaseModel):
 #   )
 
 class BugReport(BaseModel):
-    pass  # ← Replace with your field definitions
+    # TODO: Define the fields described above
+    bug_description: str
+    severity: Severity
+    suggestion: str
+    line_number: Optional[int] = None
 
 
 # ──────────────────────────────────────────────
@@ -137,8 +146,13 @@ class BugReport(BaseModel):
 #   )
 
 class ReviewResponse(BaseModel):
-    pass  # ← Replace with your field definitions
-
+    # TODO: Define the fields described above
+    # Hint: Use Field(default_factory=list) for mutable defaults
+    #       Use Field(ge=0, le=100) for bounded integers
+    bugs: List[BugReport] = Field(default_factory=list)
+    summary: str
+    score: int = Field(..., ge=0, le=100)
+    language: Optional[str] = None
 
 # ╔═══════════════════════════════════════════════╗
 # ║       PART 2 — Capstone Extension TODOs        ║
@@ -173,7 +187,10 @@ class ReviewResponse(BaseModel):
 #   )
 
 class StyleIssue(BaseModel):
-    pass  # ← Replace with your field definitions
+    issue: str
+    category: str
+    suggestion: str
+    line_number: Optional[int] = None
 
 
 # ──────────────────────────────────────────────
@@ -201,7 +218,11 @@ class StyleIssue(BaseModel):
 #   )
 
 class ConceptExplanation(BaseModel):
-    pass  # ← Replace with your field definitions
+    concept: str
+    explanation: str
+    related_bug: str
+    resource_link: Optional[str] = None
+    code_example: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -230,7 +251,11 @@ class ConceptExplanation(BaseModel):
 #   )
 
 class CodingChallenge(BaseModel):
-    pass  # ← Replace with your field definitions
+    title: str
+    description: str
+    difficulty: str
+    starter_code: str
+    hint: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -255,7 +280,14 @@ class CodingChallenge(BaseModel):
 # Hint: Use Field(default_factory=list) for all list fields
 
 class FullReviewResponse(BaseModel):
-    pass  # ← Replace with your field definitions
+    bugs: List[BugReport] = Field(default_factory=list)
+    style_issues: List[StyleIssue] = Field(default_factory=list)
+    explanations: List[ConceptExplanation] = Field(default_factory=list)
+    challenges: List[CodingChallenge] = Field(default_factory=list)
+    summary: str
+    score: int = Field(ge=0, le=100)
+    language: Optional[str] = None
+    reasoning_trace: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -285,4 +317,6 @@ class FullReviewResponse(BaseModel):
 #   )
 
 class VoiceReviewRequest(BaseModel):
-    pass  # ← Replace with your field definitions
+    language: Language
+    context: Optional[str] = None
+    use_advanced: bool = False

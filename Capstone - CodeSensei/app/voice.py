@@ -107,7 +107,37 @@ def transcribe_audio(audio_bytes: bytes, content_type: str = "audio/wav") -> str
     Returns:
         Transcribed text string
     """
-    pass  # ← Replace with your implementation
+    import google.generativeai as genai
+
+    try:
+        # Step 1: Configure and create model
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+        # Step 2: Encode audio to base64
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        audio_part = {
+            "inline_data": {
+                "mime_type": content_type,
+                "data": audio_b64
+            }
+        }
+
+        # Step 3: Send to Gemini with transcription prompt
+        response = model.generate_content([
+            "Please transcribe the following audio exactly. "
+            "The speaker is describing or dictating code. "
+            "Transcribe everything they say word for word.",
+            audio_part
+        ])
+
+        # Step 4: Return transcription
+        if not response.text:
+            return "No transcription available."
+        return response.text
+
+    except Exception as e:
+        raise ValueError(f"Audio transcription failed: {str(e)}")
 
 
 # ──────────────────────────────────────────────
@@ -169,4 +199,48 @@ def extract_code_from_transcript(transcript: str, language: str) -> Tuple[str, s
     Returns:
         Tuple of (extracted_code, extracted_context)
     """
-    pass  # ← Replace with your implementation
+    try:
+        # Step 1: Create chain
+        chain = TRANSCRIPT_PARSER_PROMPT | llm
+
+        # Step 2: Invoke with transcript and language
+        result = chain.invoke({
+            "transcript": transcript,
+            "language": language,
+        })
+
+        raw_output = result.content
+
+        # Step 3: Parse CODE: and CONTEXT: fields
+        code = transcript  # fallback
+        context = ""
+
+        lines = raw_output.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("CODE:"):
+                inline = line.replace("CODE:", "").strip()
+                if inline:
+                    code = inline
+                else:
+                    # Collect subsequent lines until the next known field
+                    code_lines = []
+                    i += 1
+                    while i < len(lines):
+                        next_line = lines[i].strip()
+                        if next_line.startswith("CONTEXT:"):
+                            break
+                        code_lines.append(lines[i])
+                        i += 1
+                    code = "\n".join(code_lines).strip()
+            elif line.startswith("CONTEXT:"):
+                val = line.replace("CONTEXT:", "").strip()
+                context = "" if val.lower() == "none" else val
+            i += 1
+
+        return code, context
+
+    except Exception:
+        # Step 4: Fallback- treat raw transcript as code
+        return transcript, ""

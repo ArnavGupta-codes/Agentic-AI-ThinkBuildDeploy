@@ -99,21 +99,37 @@ def health_check():
 #       "language": "python"
 #   }
 
-# ← Your POST /review-code endpoint here
+
+# TODO: Write your endpoint here
+# @app.post("/review-code", response_model=ReviewResponse)
+# def review_code(request: CodeReviewRequest):
+#     ...
+from app.agents import run_coordinator
+@app.post("/review-code", response_model=ReviewResponse)
+def review_code(request: CodeReviewRequest):
+    try:
+        result = run_coordinator(
+            code=request.code,
+            language=request.language.value,
+            context=request.context
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ╔═══════════════════════════════════════════════╗
-# ║       PART 2 — Capstone Extension TODOs        ║
+# ║       PART 2 — Capstone Extension TODOs       ║
 # ╚═══════════════════════════════════════════════╝
 # Complete these AFTER finishing Part 1.
 #
 # NOTE: You'll need to import additional functions and schemas.
 # Uncomment the imports below once you've implemented them:
-#
-# from app.agents import run_react_coordinator
-# from app.schemas import FullReviewResponse, VoiceReviewRequest
-# from app.voice import transcribe_audio, extract_code_from_transcript
-# from fastapi import UploadFile, File, Form
+
+from app.agents import run_react_coordinator
+from app.schemas import FullReviewResponse, VoiceReviewRequest
+from app.voice import transcribe_audio, extract_code_from_transcript
+from fastapi import UploadFile, File, Form
 
 
 # ──────────────────────────────────────────────
@@ -151,7 +167,18 @@ def health_check():
 #       "reasoning_trace": "Thought: I should first..."
 #   }
 
-# ← Your POST /review-code-advanced endpoint here
+# Your POST /review-code-advanced endpoint here
+@app.post("/review-code-advanced", response_model=FullReviewResponse)
+def review_code_advanced(request: CodeReviewRequest):
+    try:
+        result = run_react_coordinator(
+            code=request.code,
+            language=request.language.value,
+            context=request.context or ""
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ──────────────────────────────────────────────
@@ -218,4 +245,63 @@ def health_check():
 #     -F "context=Sorting function" \
 #     -F "use_advanced=false"
 
-# ← Your POST /review-voice endpoint here
+# Your POST /review-voice endpoint here
+@app.post("/review-voice")
+async def review_voice(
+    audio: UploadFile = File(...),
+    language: str = Form(...),
+    context: str = Form(None),
+    use_advanced: bool = Form(False),
+):
+    try:
+        # Step 1: Read audio bytes
+        audio_bytes = await audio.read()
+
+        # Step 2: Validate file type
+        supported_types = {
+            "audio/wav", "audio/mp3", "audio/mpeg",
+            "audio/ogg", "audio/webm"
+        }
+        if audio.content_type not in supported_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported audio type '{audio.content_type}'. "
+                       f"Supported: {', '.join(supported_types)}"
+            )
+
+        # Step 3: Transcribe audio → text
+        transcript = transcribe_audio(audio_bytes, audio.content_type)
+
+        # Step 4: Extract code from transcript
+        code, extracted_context = extract_code_from_transcript(transcript, language)
+
+        # Step 5: Combine contexts
+        full_context = context or ""
+        if extracted_context and extracted_context.lower() != "none":
+            full_context += f" {extracted_context}"
+
+        # Step 6: Run the appropriate review pipeline
+        if use_advanced:
+            result = run_react_coordinator(
+                code=code,
+                language=language,
+                context=full_context
+            )
+        else:
+            result = run_coordinator(
+                code=code,
+                language=language,
+                context=full_context
+            )
+
+        # Step 7: Return response with transcript metadata
+        return {
+            **result.model_dump(),
+            "transcript": transcript,
+            "extracted_code": code,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -72,7 +72,35 @@ from langchain.tools import Tool
 #   Input:  "python|||def add(a,b): return a-b"
 #   Output: "Bug 1: Uses subtraction... (Severity: high)\n..."
 
-# bug_detector_tool = ...  # ← Uncomment and implement
+from app.agents import run_bug_detector
+
+
+def _bug_detector_wrapper(tool_input: str) -> str:
+    parts = tool_input.split("|||")
+    if len(parts) < 2:
+        return "Error: Input must be 'language|||code'"
+    language, code = parts[0].strip(), parts[1].strip()
+    bugs = run_bug_detector(code, language)
+    if not bugs:
+        return "No bugs found."
+    lines = []
+    for i, bug in enumerate(bugs, 1):
+        lines.append(
+            f"Bug {i}: {bug.bug_description} (Severity: {bug.severity.value})\n"
+            f"Line: {bug.line_number or 'unknown'}\n"
+            f"Suggestion: {bug.suggestion}"
+        )
+    return "\n\n".join(lines)
+
+bug_detector_tool = Tool(
+    name="BugDetector",
+    func=_bug_detector_wrapper,
+    description=(
+        "Analyzes code for bugs, logic errors, and potential runtime failures. "
+        "Input format: 'language|||code'"
+    )
+)
+
 
 
 # ──────────────────────────────────────────────
@@ -97,7 +125,35 @@ from langchain.tools import Tool
 #              "Input format: 'language|||code'"
 #      )
 
-# style_quality_tool = ...  # ← Uncomment and implement
+from app.agents import run_style_quality
+
+
+def _style_quality_wrapper(tool_input: str) -> str:
+    parts = tool_input.split("|||")
+    if len(parts) < 2:
+        return "Error: Input must be 'language|||code'"
+    language, code = parts[0].strip(), parts[1].strip()
+    issues = run_style_quality(code, language)
+    if not issues:
+        return "No style issues found."
+    lines = []
+    for i, issue in enumerate(issues, 1):
+        lines.append(
+            f"Issue {i}: {issue.issue} (Category: {issue.category})\n"
+            f"Line: {issue.line_number or 'unknown'}\n"
+            f"Suggestion: {issue.suggestion}"
+        )
+    return "\n\n".join(lines)
+
+style_quality_tool = Tool(
+    name="StyleQuality",
+    func=_style_quality_wrapper,
+    description=(
+        "Reviews code for naming conventions, structure, complexity, "
+        "and best practices. "
+        "Input format: 'language|||code'"
+    )
+)
 
 
 # ──────────────────────────────────────────────
@@ -127,7 +183,36 @@ from langchain.tools import Tool
 # it to decide when to use this tool. Be specific about
 # what the tool does and when to use it.
 
-# concept_explainer_tool = ...  # ← Uncomment and implement
+from app.agents import run_concept_explainer
+
+
+def _concept_explainer_wrapper(tool_input: str) -> str:
+    parts = tool_input.split("|||")
+    if len(parts) < 3:
+        return "Error: Input must be 'language|||code|||bug_report'"
+    language, code, bug_report = parts[0].strip(), parts[1].strip(), parts[2].strip()
+    explanations = run_concept_explainer(code, language, bug_report)
+    if not explanations:
+        return "No concept explanations generated."
+    lines = []
+    for i, exp in enumerate(explanations, 1):
+        lines.append(
+            f"Concept {i}: {exp.concept}\n"
+            f"Explanation: {exp.explanation}\n"
+            f"Related Bug: {exp.related_bug}\n"
+            f"Code Example: {exp.code_example or 'none'}"
+        )
+    return "\n\n".join(lines)
+
+concept_explainer_tool = Tool(
+    name="ConceptExplainer",
+    func=_concept_explainer_wrapper,
+    description=(
+        "Explains the CS concepts behind bugs using documentation (RAG-powered). "
+        "Helps students understand WHY issues exist. "
+        "Input format: 'language|||code|||bug_report'"
+    )
+)
 
 
 # ──────────────────────────────────────────────
@@ -153,7 +238,36 @@ from langchain.tools import Tool
 #              "Input format: 'language|||bug_report|||style_report'"
 #      )
 
-# challenge_generator_tool = ...  # ← Uncomment and implement
+from app.agents import run_challenge_generator
+
+
+def _challenge_generator_wrapper(tool_input: str) -> str:
+    parts = tool_input.split("|||")
+    if len(parts) < 3:
+        return "Error: Input must be 'language|||bug_report|||style_report'"
+    language, bug_report, style_report = parts[0].strip(), parts[1].strip(), parts[2].strip()
+    challenges = run_challenge_generator(language, bug_report, style_report)
+    if not challenges:
+        return "No challenges generated."
+    lines = []
+    for i, ch in enumerate(challenges, 1):
+        lines.append(
+            f"Challenge {i}: {ch.title} (Difficulty: {ch.difficulty})\n"
+            f"Description: {ch.description}\n"
+            f"Starter Code:\n{ch.starter_code}\n"
+            f"Hint: {ch.hint or 'none'}"
+        )
+    return "\n\n".join(lines)
+
+challenge_generator_tool = Tool(
+    name="ChallengeGenerator",
+    func=_challenge_generator_wrapper,
+    description=(
+        "Creates follow-up coding challenges based on the student's weak spots. "
+        "Should be called AFTER bug detection and style review. "
+        "Input format: 'language|||bug_report|||style_report'"
+    )
+)
 
 
 # ──────────────────────────────────────────────
@@ -171,4 +285,11 @@ from langchain.tools import Tool
 #         challenge_generator_tool,
 #     ]
 
-# ← Uncomment and implement get_all_tools()
+def get_all_tools():
+    """Return all available tools for the ReAct agent."""
+    return [
+        bug_detector_tool,
+        style_quality_tool,
+        concept_explainer_tool,
+        challenge_generator_tool,
+    ]
